@@ -1,0 +1,8 @@
+{
+    "enabled": false,
+
+    "whitelist_sudoers": true,
+
+    "channel_only": true,
+    "channel": ""
+}

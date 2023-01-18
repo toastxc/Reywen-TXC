@@ -1,0 +1,8 @@
+{
+    "token": "",
+    "bot_id": "",
+    "sudoers": [],
+    "format": "json",
+    "websocket_domain": "ws.revolt.chat",
+    "api_domain": "api.revolt.chat"
+}
