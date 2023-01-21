@@ -3,7 +3,6 @@ echo "compiling reywen"
 cargo b -r
 
 echo "creating template"
-buildah rm fedora-minimal-working-container
 buildah from fedora-minimal:latest
 
 echo "copying files"
@@ -17,9 +16,6 @@ echo "creating image"
 buildah config --entrypoint "/reywen-txc -D FOREGROUND" fedora-minimal-working-container
 buildah commit fedora-minimal-working-container reywen-txc
 
-echo "removing old docker container"
-docker container prune --force
-docker image rm localhost/reywen-txc:latest
 
 echo "pushing image to docker"
 buildah push localhost/reywen-txc:latest docker-daemon:localhost/reywen-txc:latest
