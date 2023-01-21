@@ -18,15 +18,30 @@
 
         {
             "type": "command",
-            "name": "build container",
+            "name": "container build",
             "program": "$PROJECT_DIR$/auto/buildah-latest.sh"
         },
 
         {
             "type": "command",
-            "name": "run container",
+            "name": "container run",
             "program": "$PROJECT_DIR$/auto/deploy.sh",
         },
 
+        {
+            "type": "command",
+            "name": "container save",
+            "program": "$PROJECT_DIR$/auto/save.sh",
+        },
+        {
+            "type": "command",
+            "name": "container import",
+            "program": "$PROJECT_DIR$/auto/deploy-from-gz.sh"
+        },
+        {
+            "type": "command",
+            "name": "container clean",
+            "program": "$PROJECT_DIR$/auto/clean.sh",
+        }
     ]
 }
