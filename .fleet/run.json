@@ -1,0 +1,32 @@
+{
+    "configurations": [
+        {
+            "type": "cargo",
+            "name": "run",
+            "cargoArgs": ["run"],
+        },
+        {
+            "type": "cargo",
+            "name": "clippy",
+            "cargoArgs": ["clippy"],
+        },
+        {
+            "type": "cargo",
+            "name": "build",
+            "cargoArgs": ["b"],
+        },
+
+        {
+            "type": "command",
+            "name": "build container",
+            "program": "$PROJECT_DIR$/auto/buildah-latest.sh"
+        },
+
+        {
+            "type": "command",
+            "name": "run container",
+            "program": "$PROJECT_DIR$/auto/deploy.sh",
+        },
+
+    ]
+}
