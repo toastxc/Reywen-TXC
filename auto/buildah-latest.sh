@@ -15,8 +15,3 @@ buildah run fedora-minimal-working-container chmod 777 -R /config
 echo "creating image"
 buildah config --entrypoint "/reywen-txc -D FOREGROUND" fedora-minimal-working-container
 buildah commit fedora-minimal-working-container reywen-txc
-
-
-echo "pushing image to docker"
-buildah push localhost/reywen-txc:latest docker-daemon:localhost/reywen-txc:latest
-echo "done"

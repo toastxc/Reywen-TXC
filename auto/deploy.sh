@@ -1,2 +1,2 @@
 #!/bin/bash
-docker run --name "reywen-txc" localhost/reywen-txc:latest
+podman run -d --name "reywen-txc" localhost/reywen-txc:latest
