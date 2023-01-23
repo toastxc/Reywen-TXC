@@ -13,6 +13,8 @@ use reywen::{
 use serde::{Deserialize, Serialize};
 use serde_json;
 
+use crate::md_fmt;
+
 #[derive(Deserialize, Serialize)]
 pub struct TomoConf {
     pub enabled: bool,
@@ -20,12 +22,31 @@ pub struct TomoConf {
 }
 
 pub async fn t_main(client: &Reywen, input_message: &RMessage) {
+    let help = format!(
+        "### Tomo\n{} {}\n{} {}\n {} {}\n {} {}\n{} {}",
+        md_fmt("enrol"),
+        "Registers self to the game",
+        md_fmt("exit"),
+        "Removes self from the game",
+        md_fmt("check"),
+        "Displays user profile",
+        md_fmt("buy"),
+        "Attempt to purchase animal",
+        md_fmt("dev"),
+        "dev commands - sudoers only",
+    );
+
     let client: Reywen = client.to_owned();
     // cli stuff
     if crash_condition(input_message, Some("?t")) {
         return;
     };
     let convec = reywen::delta::lreywen::convec(input_message);
+
+    if convec[1] == "help" {
+        client.sender(&help).await;
+        return;
+    };
 
     // connect to and import database
 
@@ -151,16 +172,11 @@ async fn newday(client: Reywen, db: Collection<TProfile>) {
     for x in database.iter() {
         let updater = doc! {"$set": {"money":x.money + coin_calc(x)}};
 
-        db.update_one(
-            doc! {"user_id": &client.input_message.author},
-            updater,
-            None,
-        )
-        .await
-        .unwrap();
+        db.update_one(doc! {"user_id": &x.user_id}, updater, None)
+            .await
+            .unwrap();
     }
-
-    println!("done");
+    client.sender(":cat_sussy:  :thumbsup: ").await;
 }
 
 fn coin_calc(profile: &TProfile) -> u32 {
