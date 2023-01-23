@@ -16,7 +16,7 @@ use reywen::{
     },
 };
 
-use crate::md_fmt;
+use crate::{md_fmt, RE};
 
 // config struct
 // this optional struct adds configurable paramaters that are hot changeable, config files are
@@ -33,13 +33,13 @@ struct Plural {
 pub async fn plural_main(client: &Reywen, input_message: &RMessage) {
     let help = format!(
         "### Plural\n{} {}\n{} {}\n{} {}\n{} {}",
-        md_fmt("search"),
+        md_fmt("search", RE::Search),
         "searches for a profile",
-        md_fmt("query"),
+        md_fmt("query", RE::Json),
         "Search but returns a JSON",
-        md_fmt("rm"),
+        md_fmt("rm", RE::Rm),
         "removes a profile",
-        md_fmt("insert"),
+        md_fmt("insert", RE::Insert),
         "Created a new profile",
     );
 

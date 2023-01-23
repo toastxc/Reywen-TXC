@@ -9,8 +9,7 @@ use reywen::{
     quark::delta::message::RMessage,
 };
 
-use crate::md_fmt;
-
+use crate::{md_fmt, RE};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MessageConf {
@@ -19,13 +18,20 @@ pub struct MessageConf {
 
 // main message engine
 pub async fn message_main(client: &Reywen, input_message: &RMessage) {
-    let help = format!("### Reywen-TXC\n{} {}\n{} {}\n{} {}\n{} {}\n{} {}\n{} {}",
-    md_fmt("?e"), "E621 Interaction",
-    md_fmt("?p"), "Masquerade Utility",
-    md_fmt("?/"), "BASH SHell",
-    md_fmt("?t"), "Tomogatchi Game",
-    md_fmt("?mog"), "Amogus",
-    md_fmt("?ver"), "Displays version"
+    let help = format!(
+        "### Reywen-TXC\n{} {}\n{} {}\n{} {}\n{} {}\n{} {}\n{} {}",
+        md_fmt("?e", RE::Send),
+        "E621 Interaction",
+        md_fmt("?p", RE::Send),
+        "Masquerade Utility",
+        md_fmt("?/", RE::Send),
+        "BASH SHell",
+        md_fmt("?t", RE::Send),
+        "Tomogatchi Game",
+        md_fmt("?mog", RE::Send),
+        "Amogus",
+        md_fmt("?ver", RE::Send),
+        "Displays version"
     );
 
     let client: Reywen = client.to_owned();
@@ -60,4 +66,3 @@ pub async fn message_main(client: &Reywen, input_message: &RMessage) {
         client.sender(mes).await;
     }
 }
-

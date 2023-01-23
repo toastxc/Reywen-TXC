@@ -11,7 +11,7 @@ use reywen::{
     quark::delta::message::RMessage,
 };
 
-use crate::md_fmt;
+use crate::{md_fmt, RE};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShellConf {
@@ -22,7 +22,7 @@ pub struct ShellConf {
 }
 
 pub async fn shell_main(client: &Reywen, input_message: &RMessage) {
-    let help = format!("{} {}", md_fmt("?/"), "executes a bash command");
+    let help = format!("{} {}", md_fmt("?/", RE::Send), "executes a bash command");
 
     let client: Reywen = client.to_owned();
     // import config

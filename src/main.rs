@@ -60,7 +60,32 @@ async fn main() {
         .await;
 }
 
-// i dont like markdown
-pub fn md_fmt(mes: &str) -> String {
-    format!("- $\\color{{grey}}\\small\\textsf{{{mes}}}$")
+// Simple markdown formating
+pub fn md_fmt(message: &str, emoji: RE) -> String {
+    let emoji = RE::e(emoji);
+
+    format!("{emoji} $\\color{{grey}}\\small\\textsf{{{message}}}$")
+}
+
+// Custom emojis
+pub enum RE {
+    Search,
+    Send,
+    Rm,
+    Json,
+    Insert,
+}
+
+// Serilizing emojis
+impl RE {
+    pub fn e(self) -> String {
+        match self {
+            RE::Search => ":01GQE862YPERANAJC30GNKH625:",
+            RE::Send => ":01GQE848SKP794SKZYY8RTCXF1:",
+            RE::Rm => ":01GQE86CT9MKAHPTG55HMTG7TR:",
+            RE::Json => ":01GQE86K0CG3FWA0D6FRY7JT0R:",
+            RE::Insert => ":01GQE86SAYFDXZE2F39YHJMB1F:",
+        }
+        .to_string()
+    }
 }

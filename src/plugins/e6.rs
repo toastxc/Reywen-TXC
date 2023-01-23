@@ -13,7 +13,7 @@ use reywen::{
     quark::delta::message::RMessage,
 };
 
-use crate::md_fmt;
+use crate::{md_fmt, RE};
 
 // internal
 
@@ -126,7 +126,11 @@ pub struct Relationships {
 }
 
 pub async fn e6_main(client: &Reywen, input_message: &RMessage) {
-    let help = format!("### E621\n{} {}", md_fmt("search"), "searches for post",);
+    let help = format!(
+        "### E621\n{} {}",
+        md_fmt("search", RE::Search),
+        "searches for post",
+    );
 
     let client: Reywen = client.to_owned();
     // import config

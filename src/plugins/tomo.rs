@@ -13,7 +13,7 @@ use reywen::{
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-use crate::md_fmt;
+use crate::{md_fmt, RE};
 
 #[derive(Deserialize, Serialize)]
 pub struct TomoConf {
@@ -24,15 +24,15 @@ pub struct TomoConf {
 pub async fn t_main(client: &Reywen, input_message: &RMessage) {
     let help = format!(
         "### Tomo\n{} {}\n{} {}\n {} {}\n {} {}\n{} {}",
-        md_fmt("enrol"),
+        md_fmt("enrol", RE::Json),
         "Registers self to the game",
-        md_fmt("exit"),
+        md_fmt("exit", RE::Rm),
         "Removes self from the game",
-        md_fmt("check"),
+        md_fmt("check", RE::Search),
         "Displays user profile",
-        md_fmt("buy"),
+        md_fmt("buy", RE::Insert),
         "Attempt to purchase animal",
-        md_fmt("dev"),
+        md_fmt("dev", RE::Json),
         "dev commands - sudoers only",
     );
 
