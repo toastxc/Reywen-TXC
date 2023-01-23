@@ -16,6 +16,8 @@ use reywen::{
     },
 };
 
+use crate::md_fmt;
+
 // config struct
 // this optional struct adds configurable paramaters that are hot changeable, config files are
 // jsons and usually stored in config/
@@ -29,6 +31,18 @@ struct Plural {
 
 // plugin main is responsible for getting details and activiating functions based on conditions
 pub async fn plural_main(client: &Reywen, input_message: &RMessage) {
+    let help = format!(
+        "### Plural\n{} {}\n{} {}\n{} {}\n{} {}",
+        md_fmt("search"),
+        "searches for a profile",
+        md_fmt("query"),
+        "Search but returns a JSON",
+        md_fmt("rm"),
+        "removes a profile",
+        md_fmt("insert"),
+        "Created a new profile",
+    );
+
     let client: Reywen = client.to_owned();
 
     // import plural
@@ -56,6 +70,7 @@ pub async fn plural_main(client: &Reywen, input_message: &RMessage) {
 
     // additional crash condition
     if convec.len() < 3 {
+        client.sender(&help).await;
         return;
     };
 
@@ -69,37 +84,36 @@ pub async fn plural_main(client: &Reywen, input_message: &RMessage) {
         .collection::<Masquerade>(&plural.collection);
 
     match convec[1] as &str {
-        "search" => {
-            if pl_search(convec[2], db).await.is_none() {
-                client.sender("**Profile could not be found!**").await;
-            } else {
-                client.sender("**Profile found!**").await;
-            };
-        }
+        "search" => cli_search(client.clone(), db).await,
 
-        "rm" => {
-            pl_remove(client.clone(), db, input_message).await;
-        }
-        "insert" => {
-            pl_insert(client.clone(), db, input_message).await;
-        }
+        "rm" => pl_remove(client.clone(), db).await,
 
-        "send" => {
-            pl_send(client.clone(), db, input_message).await;
-        }
-        "query" => {
-            pl_query(input_message, db, client).await;
-        }
+        "insert" => pl_insert(client.clone(), db).await,
+
+        "send" => pl_send(client.clone(), db).await,
+
+        "query" => pl_query(db, client).await,
         _ => {}
-    };
+    }
+}
+
+async fn cli_search(client: Reywen, db: Collection<Masquerade>) {
+    if pl_search(convec(&client.input_message)[2], db)
+        .await
+        .is_none()
+    {
+        client.sender("**Profile could not be found!**").await;
+    } else {
+        client.sender("**Profile found!**").await;
+    }
 }
 
 async fn pl_search(query: &str, db: Collection<Masquerade>) -> Option<Masquerade> {
     db.find_one(doc! { "name": query }, None).await.unwrap()
 }
 
-async fn pl_remove(client: Reywen, db: Collection<Masquerade>, input_message: &RMessage) {
-    let convec = convec(input_message);
+async fn pl_remove(client: Reywen, db: Collection<Masquerade>) {
+    let convec = convec(&client.input_message);
 
     let collection = db;
 
@@ -124,15 +138,15 @@ async fn pl_remove(client: Reywen, db: Collection<Masquerade>, input_message: &R
     };
 }
 
-async fn pl_send(client: Reywen, db: Collection<Masquerade>, input_message: &RMessage) {
-    let convec: Vec<&str> = convec(input_message);
+async fn pl_send(client: Reywen, db: Collection<Masquerade>) {
+    let convec: Vec<&str> = convec(&client.input_message);
 
     // ?p send <>
     let profile = pl_search(convec[2], db).await;
 
     if profile.is_none() {
         client
-            .sender("**Invalid profile! (we couldn't find it pwp**")
+            .sender("**Invalid profile! we couldn't find it pwp**")
             .await;
         return;
     };
@@ -150,20 +164,20 @@ async fn pl_send(client: Reywen, db: Collection<Masquerade>, input_message: &RMe
         .content(&new_message);
 
     // optional fields
-    if input_message.replies.is_some() {
-        payload = payload.reply_from(input_message);
+    if client.input_message.replies.is_some() {
+        payload = payload.reply_from(&client.input_message);
     };
 
     tokio::join!(
         client.clone().send(payload),
-        client.delete_msg(&input_message._id),
+        client.clone().delete_msg(&client.input_message._id),
     );
 }
 
-async fn pl_insert(client: Reywen, db: Collection<Masquerade>, input_message: &RMessage) {
+async fn pl_insert(client: Reywen, db: Collection<Masquerade>) {
     let collection = db.clone();
 
-    let convec = convec(input_message);
+    let convec = convec(&client.input_message);
 
     if pl_search(convec[2], db).await.is_some() {
         client
@@ -201,10 +215,9 @@ async fn pl_insert(client: Reywen, db: Collection<Masquerade>, input_message: &R
     };
 }
 
-async fn pl_query(input_message: &RMessage, db: Collection<Masquerade>, client: Reywen) {
-    let convec = convec(input_message);
+async fn pl_query(db: Collection<Masquerade>, client: Reywen) {
     // ?p query somethign
-    let userquery = pl_search(convec[2], db).await;
+    let userquery = pl_search(convec(&client.input_message)[2], db).await;
 
     if userquery.is_none() {
         client.sender("**Could not find profile!**").await;
