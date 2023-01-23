@@ -10,8 +10,10 @@ use reywen::{
         lreywen::{convec, crash_condition, lte},
         oop::Reywen,
     },
-    quark::delta::{message::RMessage},
+    quark::delta::message::RMessage,
 };
+
+use crate::md_fmt;
 
 // internal
 
@@ -124,6 +126,8 @@ pub struct Relationships {
 }
 
 pub async fn e6_main(client: &Reywen, input_message: &RMessage) {
+    let help = format!("### E621\n{} {}", md_fmt("search"), "searches for post",);
+
     let client: Reywen = client.to_owned();
     // import config
     let conf: String = fs_to_str("config/e6.json").expect("failed to read config/e6.json\n{e}");
@@ -136,6 +140,7 @@ pub async fn e6_main(client: &Reywen, input_message: &RMessage) {
 
     let convec = convec(input_message);
 
+    if convec[0] == "help" {}
 
     // determines if e6 is allive
     if ping_test(&e6.url).await {
@@ -147,7 +152,7 @@ pub async fn e6_main(client: &Reywen, input_message: &RMessage) {
 
     let var = match convec[1] as &str {
         "search" => e6_search(&convec, &e6.url).await,
-        "help" => String::from("**Hewo!**\n`?e search <>` to search"),
+        "help" => help,
         _ => return,
     };
     client.sender(&var).await;
@@ -169,7 +174,7 @@ async fn e6_search(convec: &[&str], url: &str) -> String {
 
     // query payload url - tags - page number
     let query = &format!(
-            "{url}/posts.json?tags={}&limit=1&page={}",
+        "{url}/posts.json?tags={}&limit=1&page={}",
         encode(convec[2]),
         numcheck(convec)
     );
