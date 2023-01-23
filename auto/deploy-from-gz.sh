@@ -1,4 +1,4 @@
 #!/bin/bash
 
-docker load < txcreywen_latest.tar.gz
+podman load < txcreywen_latest.tar.gz
 echo "done"
