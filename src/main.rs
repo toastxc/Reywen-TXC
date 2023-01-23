@@ -21,14 +21,18 @@ use reywen::{
 };
 
 use crate::plugins::{
-    bridge::br_main, e6::e6_main, message::message_main, plural::plural_main, tomo::t_main, shell::shell_main,
+    bridge::br_main, e6::e6_main, message::message_main, plural::plural_main, shell::shell_main,
+    tomo::t_main,
 };
 
 #[tokio::main]
 async fn main() {
     let auth = conf_init().unwrap();
+    println!("booting...");
 
     let ws = ws_init().unwrap();
+
+    println!("websocket established");
 
     ws.clone()
         .generate()
@@ -54,4 +58,9 @@ async fn main() {
             );
         })
         .await;
+}
+
+// i dont like markdown
+pub fn md_fmt(mes: &str) -> String {
+    format!("- $\\color{{grey}}\\small\\textsf{{{mes}}}$")
 }
