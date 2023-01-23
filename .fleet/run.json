@@ -42,6 +42,11 @@
             "type": "command",
             "name": "container clean",
             "program": "$PROJECT_DIR$/auto/clean.sh",
+        },
+        {
+            "type": "command",
+            "name": "container export",
+            "program": "$PROJECT_DIR$/auto/export-to-server.sh",
         }
     ]
 }
