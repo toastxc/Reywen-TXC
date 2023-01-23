@@ -8,6 +8,10 @@ use reywen::{
     },
     quark::delta::message::RMessage,
 };
+
+use crate::md_fmt;
+
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MessageConf {
     pub enabled: bool,
@@ -15,6 +19,15 @@ pub struct MessageConf {
 
 // main message engine
 pub async fn message_main(client: &Reywen, input_message: &RMessage) {
+    let help = format!("### Reywen-TXC\n{} {}\n{} {}\n{} {}\n{} {}\n{} {}\n{} {}",
+    md_fmt("?e"), "E621 Interaction",
+    md_fmt("?p"), "Masquerade Utility",
+    md_fmt("?/"), "BASH SHell",
+    md_fmt("?t"), "Tomogatchi Game",
+    md_fmt("?mog"), "Amogus",
+    md_fmt("?ver"), "Displays version"
+    );
+
     let client: Reywen = client.to_owned();
 
     // import config
@@ -36,13 +49,15 @@ pub async fn message_main(client: &Reywen, input_message: &RMessage) {
 
     let mes = match convec[0] as &str {
         "?Mog" | "?mog" => ":01G7MT5B978E360NB6VWAS9SJ6:",
-        "?ver" | "?version" => {
-            "Reywen is rolling release, there is no release numbers only commits :trol:"
-        }
+        "?ver" | "?version" => "Reywen.rs 0.1.4",
+        "?help" => "help",
         _ => "",
     };
     // if applicable, send
-    if !mes.is_empty() {
+    if mes == "help" {
+        client.sender(&help).await;
+    } else if !mes.is_empty() {
         client.sender(mes).await;
-    };
+    }
 }
+
