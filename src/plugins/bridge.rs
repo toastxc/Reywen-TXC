@@ -1,9 +1,10 @@
 use reywen::{
-    delta::{delta::rev_convert_reply, fs::fs_to_str, lreywen::crash_condition, oop::Reywen},
-    quark::delta::message::{Masquerade, RMessage, RMessagePayload},
+    client::Do,
+    structs::message::{DataMessageSend, Masquerade, Reply},
 };
-
 use serde::{Deserialize, Serialize};
+
+use crate::crash_condition;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BrConf {
@@ -12,101 +13,81 @@ pub struct BrConf {
     pub channel_2: String,
 }
 
-pub async fn br_main(client: &Reywen, input_message: &RMessage) {
-    // import config
-    let conf_str =
-        fs_to_str("config/bridge.json").expect("failed to read config/message.json\n{e}");
+pub async fn br_main(client: &Do) {
+    // bridge is a very unconventional use of Reywen and as such has special requirements
+    // client is mutated, and input_message is directly accessed
+    // this plugin may be a bad example of normal usage of Reywen
+    let mut client: Do = client.to_owned();
 
-    let conf: BrConf = serde_json::from_str(&conf_str).expect("Failed to deser message.json");
+    // import config from file
+    let conf: BrConf = serde_json::from_str(
+        &String::from_utf8(
+            std::fs::read("config/bridge.json").expect("failed to read config/message.json\n{e}"),
+        )
+        .unwrap(),
+    )
+    .expect("invalid config");
 
     // fail conditions
     if !conf.enabled {
         return;
     };
+    crash_condition(&client.input_message, None);
 
-    crash_condition(input_message, None);
-
+    // removes the chance of bot feedback loop
     if client.auth.bot_id.is_empty() {
-        println!("WARN: bot ID is empty, this can lead to undefined behavior");
+        println!("WARN: bot ID is empty, this can lead to undefined behavior (bridge)");
+        return;
     };
-
-    // removing feedback loop
-    if input_message.author == client.auth.bot_id && input_message.masquerade.is_some() {
+    if client.author_is_bot() && client.masquerade().is_some() {
         return;
     };
 
-    // channel switcher
-    // i want a better solution but cant think of one
-    let mut chan_rec = String::new();
-    if input_message.channel == conf.channel_1 {
-        chan_rec = conf.channel_2;
-    } else if input_message.channel == conf.channel_2 {
-        chan_rec = conf.channel_1;
+    // channel matcher
+    let chan_rec = match (
+        client.channel_is(&conf.channel_1),
+        client.channel_is(&conf.channel_2),
+    ) {
+        (true, _) => conf.channel_2,
+        (_, true) => conf.channel_1,
+        _ => return,
     };
 
-    let mut client: Reywen = client.to_owned();
-
+    // modifying input message - makes reywen send a message in a different channel to that of websocket
     client.input_message.channel = chan_rec;
 
-    let message = input_message.clone();
-
-    // due to how weird this plugin is by nature, the client needs to be created later
-
-    let mut br_masq: Masquerade = Masquerade::new();
-
-    //if user has no masquerade: pull from user info API
-    if input_message.masquerade.is_none() {
-        // moved to external function (its awful)
-        br_masq = masq_from_user(&input_message.author, client.clone()).await;
-
-        // else - port over masquerade details from input message
-    } else {
-        let in_masq = message.masquerade.unwrap();
-
-        // translates masq values if applicable
-        if in_masq.name.is_some() {
-            br_masq = br_masq.name(&in_masq.name.unwrap());
-        };
-        if in_masq.avatar.is_some() {
-            br_masq = br_masq.name(&in_masq.avatar.unwrap());
-        };
-        if in_masq.colour.is_some() {
-            br_masq = br_masq.name(&in_masq.colour.unwrap());
-        };
+    // if a profile is already using masquerade, copy it
+    // otherwise generate a masq profile based on their details
+    let br_masq = match client.masquerade() {
+        None => masq_from_user(&client).await,
+        Some(a) => a,
     };
 
-    // construct payload and send
-    let mut payload = RMessagePayload::new()
-        .content(&input_message.clone().content.unwrap())
-        .masquerade(br_masq);
+    // converts replies from websocket to API structure
+    let mut replies: Vec<Reply> = Vec::new();
+    for x in client.replies().unwrap_or_default() {
+        let reply = Reply::new().id(&x);
+        replies.push(reply);
+    }
+    // custom message payload
+    let payload = DataMessageSend::new()
+        .content(&client.content())
+        .masquerade(br_masq)
+        .replies(replies);
 
-    // weird custom method - converts replies from websocket to API
-    let replies = rev_convert_reply(input_message.replies.clone());
-
-    if replies.is_some() {
-        payload = payload.replies(replies.unwrap());
-    };
     client.send(payload).await;
 }
 
-async fn masq_from_user(author: &str, client: Reywen) -> Masquerade {
-    let user = client.get_user(author).await;
+// this method is very slow as it calls API several times, but it is safer than the old method
+async fn masq_from_user(client: &Do) -> Masquerade {
+    let user = client.self_fetch().await;
 
-    if user.is_some() {
-        let user = user.unwrap();
-
-        let avatar = match user.avatar {
-            None => None,
-            Some(r) => Some(format!("https://autumn.revolt.chat/avatars/{}", r.id)),
-        };
-
-        let mut masq = Masquerade::new().name(&user.username);
-
-        if avatar.is_some() {
-            masq = masq.avatar(&avatar.unwrap());
-        };
-        return masq;
+    if let Some(user) = user {
+        let avatar = client.self_fetch_avatar().await.unwrap_or(String::from(
+            "https://api.revolt.chat/users/01FYZHW3KFZ5QN8R3KCQ8JH79R/default_avatar",
+        ));
+        return Masquerade::new().name(&user.username).avatar(&avatar);
     };
-
+    // on failure masquerade is empty
     Masquerade::new()
 }
