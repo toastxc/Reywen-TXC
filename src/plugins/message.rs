@@ -45,7 +45,7 @@ pub async fn message_main(client: &Do) {
     crash_condition(&client.input_message, None);
 
     // match the first word from websocket
-    let mes = match &client.convec()[0] as &str {
+    let mes = match &client.input().convec()[0] as &str {
         "?Mog" | "?mog" => ":01G7MT5B978E360NB6VWAS9SJ6:",
         "?ver" | "?version" => "Reywen.rs 0.1.4",
         "?help" => "help",
@@ -54,8 +54,8 @@ pub async fn message_main(client: &Do) {
 
     // if applicable, send
     if mes == "help" {
-        client.sender(&help).await;
+        client.message().sender(&help).await;
     } else if !mes.is_empty() {
-        client.sender(mes).await;
+        client.message().sender(mes).await;
     }
 }
