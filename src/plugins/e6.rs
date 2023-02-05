@@ -1,19 +1,10 @@
 // external
+use crate::Do;
+use crate::{crash_condition, lte, md_fmt, RE};
 use reqwest::header::USER_AGENT;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use urlencoding::encode;
-
-use reywen::{
-    delta::{
-        fs::fs_to_str,
-        lreywen::{convec, crash_condition, lte},
-        oop::Reywen,
-    },
-    quark::delta::message::RMessage,
-};
-
-use crate::{md_fmt, RE};
 
 // internal
 
@@ -125,41 +116,44 @@ pub struct Relationships {
     pub children: Option<Vec<i32>>,
 }
 
-pub async fn e6_main(client: &Reywen, input_message: &RMessage) {
+pub async fn e6_main(client: &Do) {
     let help = format!(
         "### E621\n{} {}",
         md_fmt("search", RE::Search),
         "searches for post",
     );
 
-    let client: Reywen = client.to_owned();
     // import config
-    let conf: String = fs_to_str("config/e6.json").expect("failed to read config/e6.json\n{e}");
+    let e6: E6Conf = serde_json::from_str(
+        &String::from_utf8(
+            std::fs::read("config/e6.json").expect("failed to read config/e6.json\n{e}"),
+        )
+        .unwrap(),
+    )
+    .expect("invalid config");
 
-    let e6: E6Conf = serde_json::from_str(&conf).expect("Failed to deser e6.json");
+    let convec = client.input().convec();
 
-    if crash_condition(input_message, Some("?e")) {
+    if crash_condition(&client.input_message, Some("?e")) {
         return;
     };
 
-    let convec = convec(input_message);
-
     if convec[0] == "help" {}
 
-    // determines if e6 is allive
+    // determines if e6 is alive
     if ping_test(&e6.url).await {
         client
-            .clone()
+            .message()
             .sender(&format!("**Could not reach {}", e6.url))
             .await;
     };
 
-    let var = match convec[1] as &str {
+    let var = match &convec[1] as &str {
         "search" => e6_search(&convec, &e6.url).await,
         "help" => help,
         _ => return,
     };
-    client.sender(&var).await;
+    client.message().sender(&var).await;
 }
 
 async fn ping_test(url: &str) -> bool {
@@ -172,14 +166,14 @@ async fn ping_test(url: &str) -> bool {
     true
 }
 
-async fn e6_search(convec: &[&str], url: &str) -> String {
+async fn e6_search(convec: &[String], url: &str) -> String {
     // https://e926.net/posts?tags=fox&limit=1&page=2
     // ?e search fox 2
 
     // query payload url - tags - page number
     let query = &format!(
         "{url}/posts.json?tags={}&limit=1&page={}",
-        encode(convec[2]),
+        encode(&convec[2]),
         numcheck(convec)
     );
 
@@ -195,43 +189,42 @@ async fn e6_search(convec: &[&str], url: &str) -> String {
         return String::new();
     };
 
-    let http_payload = http.unwrap().text().await.unwrap();
+    let http_payload = match http {
+        Ok(a) => a.text().await.unwrap(),
+        Err(_) => return String::new(),
+    };
 
     if http_payload.is_empty() {
         return String::new();
     };
 
-    let res: Poster = serde_json::from_str(&http_payload).expect("failed to interpret E6 data");
+    if let Ok(poster) = serde_json::from_str::<Poster>(&http_payload) {
+        if poster.post.is_none() {
+            return String::from("**No Results!**");
+        };
 
-    if res.post.is_none() {
-        return String::from("**No Results!**");
-    };
-    let res = res.post.expect("Failed to get resuls");
-
-    let image: String = match &res[0].file.url {
-        None => DURL.to_string(),
-        Some(a) => a.to_string(),
-    };
-
-    format!("**UwU**\n{}", lte(&image))
+        if let Some(post) = poster.post {
+            if !post.is_empty() {
+                return match &post[0].file.url {
+                    Some(a) => format!("**UwU**\n{}", lte(a)),
+                    None => DURL.to_string(),
+                };
+            }
+        }
+    }
+    String::from("**Failed to get results!**")
 }
 
-fn numcheck(convec: &[&str]) -> String {
+fn numcheck(convec: &[String]) -> String {
     if convec.len() < 4 {
         return 1.to_string();
     };
 
     let maybe_number = convec[3].parse::<usize>();
 
-    match maybe_number {
-        Err(_) => 1,
-        Ok(a) => {
-            if a >= 750 {
-                1
-            } else {
-                a
-            }
-        }
-    }
-    .to_string()
+    let number = maybe_number.unwrap_or(1);
+
+    let res = if number >= 750 { 1 } else { number };
+
+    res.to_string()
 }
