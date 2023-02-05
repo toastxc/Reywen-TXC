@@ -1,19 +1,13 @@
 use bson::doc;
+use easymongo::mongo::Mongo;
 use futures_util::TryStreamExt;
 use mongodb::Collection;
-use reywen::{
-    delta::{
-        fs::fs_to_str,
-        lreywen::{convec, crash_condition},
-        mongo::mongo_db,
-        oop::Reywen,
-    },
-    quark::{delta::message::RMessage, mongo::RMongo},
-};
+
+use reywen::client::Do;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-use crate::{md_fmt, RE};
+use crate::{crash_condition, md_fmt, RE};
 
 #[derive(Deserialize, Serialize)]
 pub struct TomoConf {
@@ -21,7 +15,7 @@ pub struct TomoConf {
     pub collection: String,
 }
 
-pub async fn t_main(client: &Reywen, input_message: &RMessage) {
+pub async fn t_main(client: &Do) {
     let help = format!(
         "### Tomo\n{} {}\n{} {}\n {} {}\n {} {}\n{} {}",
         md_fmt("enrol", RE::Json),
@@ -36,54 +30,62 @@ pub async fn t_main(client: &Reywen, input_message: &RMessage) {
         "dev commands - sudoers only",
     );
 
-    let client: Reywen = client.to_owned();
     // cli stuff
-    if crash_condition(input_message, Some("?t")) {
+    if crash_condition(&client.input_message, Some("?t")) {
         return;
     };
-    let convec = reywen::delta::lreywen::convec(input_message);
+    let convec = client.input().convec();
 
     if convec[1] == "help" {
-        client.sender(&help).await;
+        client.message().sender(&help).await;
         return;
     };
 
     // connect to and import database
 
-    let db_str = fs_to_str("config/mongo.json").unwrap();
-    let db_conf: RMongo = serde_json::from_str(&db_str).unwrap();
+    let db_conf: Mongo = serde_json::from_str(
+        &(String::from_utf8(
+            std::fs::read("config/mongo.json").expect("failed to read config/mongo.json\n{e}"),
+        )
+        .unwrap()),
+    )
+    .expect("Failed to deser plural.json");
 
-    let tomo_str = fs_to_str("config/tomo.json").unwrap();
-    let tomo_conf: TomoConf = serde_json::from_str(&tomo_str).unwrap();
+    let tomo_conf: TomoConf = serde_json::from_str(
+        &String::from_utf8(
+            std::fs::read("config/tomo.json").expect("failed to read config/tomo.json\n{e}"),
+        )
+        .unwrap(),
+    )
+    .expect("Failed to deser plural.json");
 
     if !tomo_conf.enabled {
         return;
     };
 
-    let db = mongo_db(
-        RMongo::new()
-            .username(&db_conf.username)
-            .password(&db_conf.password)
-            .database(&db_conf.database),
-    )
-    .await
-    .collection::<TProfile>(&tomo_conf.collection);
+    let db = Mongo::new()
+        .username(&db_conf.username)
+        .password(&db_conf.password)
+        .database(&db_conf.database)
+        .db_generate()
+        .await
+        .collection::<TProfile>(&tomo_conf.collection);
 
-    match convec[1] {
-        "enrol" => add_self(client, input_message, db).await,
+    match convec[1].as_str() {
+        "enrol" => add_self(client, db).await,
         "exit" => remove_self(client, db).await,
-        "check" => query_self(client, input_message, db).await,
+        "check" => query_self(client, db).await,
         "dev" => dev_patterns(client, db).await,
         "buy" => buy_pet(client, db).await,
         _ => {
-            client.sender("**Invalid command**").await;
+            client.message().sender("**Invalid command**").await;
         }
     };
 }
 
-async fn buy_pet(client: Reywen, db: Collection<TProfile>) {
+async fn buy_pet(client: &Do, db: Collection<TProfile>) {
     if !user_exist(&db, &client.input_message.author).await {
-        client.sender("**User does not exist!**").await;
+        client.message().sender("**User does not exist!**").await;
         return;
     };
 
@@ -93,20 +95,23 @@ async fn buy_pet(client: Reywen, db: Collection<TProfile>) {
         .unwrap()
         .unwrap();
 
-    let convec = convec(&client.input_message);
+    let convec = client.input().convec();
 
     // ?t buy frog
 
-    let animal = match Animal::to_enum(convec[2]) {
+    let animal = match Animal::to_enum(&convec[2]) {
         None => {
-            client.sender("**invalid animal**").await;
+            client.message().sender("**invalid animal**").await;
             return;
         }
         Some(a) => a,
     };
 
     if user.money < Animal::cost(&animal) {
-        client.sender("**Cannot buy, not enough coins**").await;
+        client
+            .message()
+            .sender("**Cannot buy, not enough coins**")
+            .await;
         return;
     };
 
@@ -131,9 +136,9 @@ async fn buy_pet(client: Reywen, db: Collection<TProfile>) {
     .unwrap();
 }
 
-async fn remove_self(client: Reywen, db: Collection<TProfile>) {
+async fn remove_self(client: &Do, db: Collection<TProfile>) {
     if !user_exist(&db, &client.input_message.author).await {
-        client.sender("**User does not exist!**").await;
+        client.message().sender("**User does not exist!**").await;
         return;
     };
 
@@ -141,27 +146,28 @@ async fn remove_self(client: Reywen, db: Collection<TProfile>) {
         .await
         .unwrap();
 
-    client.sender("**user removed**").await;
+    client.message().sender("**user removed**").await;
 }
 
-async fn dev_patterns(client: Reywen, db: Collection<TProfile>) {
+async fn dev_patterns(client: &Do, db: Collection<TProfile>) {
     if !client.auth.sudoers.contains(&client.input_message.author) {
         client
+            .message()
             .sender("**You are not authorised to use dev commands**")
             .await;
         return;
     };
     // ?t dev newday
 
-    match convec(&client.input_message)[2] {
+    match client.input().convec()[2].as_str() {
         "newday" => newday(client, db).await,
         _ => {
-            client.sender("**Invalid command**").await;
+            client.message().sender("**Invalid command**").await;
         }
     }
 }
 
-async fn newday(client: Reywen, db: Collection<TProfile>) {
+async fn newday(client: &Do, db: Collection<TProfile>) {
     // iterator for document stream
     let cursor = db.find(None, None).await.unwrap();
 
@@ -176,7 +182,7 @@ async fn newday(client: Reywen, db: Collection<TProfile>) {
             .await
             .unwrap();
     }
-    client.sender(":cat_sussy:  :thumbsup: ").await;
+    client.message().sender(":cat_sussy:  :thumbsup: ").await;
 }
 
 fn coin_calc(profile: &TProfile) -> u32 {
@@ -187,14 +193,14 @@ fn coin_calc(profile: &TProfile) -> u32 {
     }
     fin
 }
-async fn query_self(client: Reywen, input_message: &RMessage, db: Collection<TProfile>) {
-    if !user_exist(&db, &input_message.author).await {
-        client.sender("**User doesn't exist!**").await;
+async fn query_self(client: &Do, db: Collection<TProfile>) {
+    if !user_exist(&db, &client.input().author()).await {
+        client.message().sender("**User doesn't exist!**").await;
         return;
     };
 
     let res = match db
-        .find_one(doc!("user_id": &input_message.author), None)
+        .find_one(doc!("user_id": client.input().author()), None)
         .await
     {
         Ok(a) => format!(
@@ -204,24 +210,24 @@ async fn query_self(client: Reywen, input_message: &RMessage, db: Collection<TPr
         Err(_) => String::from("**Could not find user!**"),
     };
 
-    client.sender(&res).await;
+    client.message().sender(&res).await;
 }
 
-async fn add_self(client: Reywen, input_message: &RMessage, db: Collection<TProfile>) {
+async fn add_self(client: &Do, db: Collection<TProfile>) {
     // ?t add_self
-    if user_exist(&db, &input_message.author).await {
-        client.sender("**User already exists**").await;
+    if user_exist(&db, &client.input().author()).await {
+        client.message().sender("**User already exists**").await;
         return;
     };
-    let profile = TProfile::new(&input_message.author);
+    let profile = TProfile::new(&client.input().author());
 
     let res = match db.insert_one(profile, None).await {
         Err(e) => format!("**Failed inserting user!**\n{e}"),
 
-        Ok(_) => format!("**Successfully added user <@{}>**", input_message.author),
+        Ok(_) => format!("**Successfully added user <@{}>**", client.input().author()),
     };
 
-    client.sender(&res).await;
+    client.message().sender(&res).await;
 }
 
 async fn user_exist(db: &Collection<TProfile>, target: &str) -> bool {
