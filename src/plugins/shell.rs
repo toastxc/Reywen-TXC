@@ -93,52 +93,29 @@ pub async fn bash_exec(client: &Do, mut convec: Vec<String>) {
         bash_big_msg(out.to_string(), client).await;
     };
 }
+// rewrote big bash, still not fully functional
+async fn bash_big_msg(out: String, client: &Do) {
+    let mut newstr: Vec<String> = Vec::new();
+    newstr.push(String::new());
 
-// this code is terrible im sorry
-pub async fn bash_big_msg(out: String, client: &Do) {
-    let vec: Vec<char> = out.chars().collect();
+    let mut tempstr = String::new();
 
-    let (a, b, c) = convert(vec.len() as i32);
-
-    // iterator
-    // payload
-    // remainder
-
-    let mut current = String::new();
-    let mut iter = 0;
-
-    for _ in 0..a {
-        for _ in 0..b {
-            current += &vec[(iter) as usize].to_string();
-            iter += 1;
+    for x in out.split('\n') {
+        if tempstr.clone().chars().count() + x.chars().count() <= 2000 {
+            tempstr += &format!("\n{x}")
+        } else {
+            newstr.push(tempstr.clone());
+            tempstr = String::new();
         }
-
-        client
-            .clone()
-            .message()
-            .sender(&format!("```\\n\\n{current}"))
-            .await;
-
-        current = String::new();
     }
 
-    if c > 0 {
-        for _ in 0..c {
-            current += &vec[(iter - 1) as usize].to_string();
-            iter += 1;
-        }
+    newstr.push(tempstr);
 
-        current = format!("```\\n\\n{current}");
+    let time = tokio::time::Duration::from_secs(1);
 
-        client.message().sender(&current).await;
-    };
-    println!();
-}
-
-pub fn convert(a: i32) -> (i32, i32, i32) {
-    if a < 1000 {
-        return (1, a, 0);
-    };
-
-    (a / 1000, 1000, a % 1000)
+    for x in newstr.iter() {
+        tokio::time::sleep(time).await;
+        //println!("{}", x);
+        client.message().sender(&format!("```text\n{x}")).await;
+    }
 }
