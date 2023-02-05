@@ -1,17 +1,8 @@
+use reywen::client::Do;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
-use reywen::{
-    delta::{
-        delta::sudoer,
-        fs::fs_to_str,
-        lreywen::{convec, crash_condition},
-        oop::Reywen,
-    },
-    quark::delta::message::RMessage,
-};
-
-use crate::{md_fmt, RE};
+use crate::{crash_condition, md_fmt, RE};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShellConf {
@@ -21,39 +12,44 @@ pub struct ShellConf {
     pub channel: String,
 }
 
-pub async fn shell_main(client: &Reywen, input_message: &RMessage) {
+pub async fn shell_main(client: &Do) {
     let help = format!("{} {}", md_fmt("?/", RE::Send), "executes a bash command");
 
-    let client: Reywen = client.to_owned();
     // import config
-    let conf = fs_to_str("config/shell.json").expect("failed to read config/shell.json\n{e}");
-
-    let shell: ShellConf = serde_json::from_str(&conf).expect("Failed to deser shell.json");
+    let shell: ShellConf = serde_json::from_str(
+        &(String::from_utf8(
+            std::fs::read("config/shell.json").expect("failed to read config/shell.json\n{e}"),
+        )
+        .unwrap()),
+    )
+    .expect("Failed to deser plural.json");
 
     if !shell.enabled {
         return;
     };
 
-    if crash_condition(input_message, Some("?/")) {
+    if crash_condition(&client.input_message, Some("?/")) {
         return;
     };
 
-    if convec(&client.input_message)[1] == "help" {
-        client.sender(&help).await;
+    if client.input().convec()[1] == "help" {
+        client.message().sender(&help).await;
         return;
     };
 
     // due to how dangerous shell commands are, there needs to be security checks
 
-    if shell.channel_only && shell.channel != input_message.channel {
+    if shell.channel_only && client.input().channel_is(&shell.channel) {
         return;
     };
-    if shell.whitelist_sudoers && !sudoer(&input_message.author, "SHELL", &client.auth.sudoers) {
-        client.sender("**Only sudoers allowed**").await;
+    client.auth().is_sudoer(&client.input().author());
+
+    if shell.whitelist_sudoers && !client.auth().is_sudoer(&client.input().author()) {
+        client.message().sender("**Only sudoers allowed**").await;
         return;
     };
 
-    let convec = convec(input_message);
+    let convec = client.input().convec();
 
     let mut content_min1 = String::new();
 
@@ -64,33 +60,42 @@ pub async fn shell_main(client: &Reywen, input_message: &RMessage) {
     bash_exec(client, convec).await;
 }
 
-pub async fn bash_exec(client: Reywen, convec: Vec<&str>) {
+pub async fn bash_exec(client: &Do, mut convec: Vec<String>) {
     // shell
 
-    let mut com = Command::new(convec[1]);
+    let mut com = Command::new("bash");
+    com.arg("-c");
 
-    for x in 0..convec.len() - 2 {
-        com.arg(convec[x + 2]);
+    convec.remove(0);
+
+    let mut newstr = String::new();
+
+    for x in convec.iter() {
+        newstr += &(String::from(" ") + x)
     }
 
+    println!("{newstr}");
+
+    com.arg(newstr);
+
     if let Err(e) = com.output() {
-        client.sender(&e.to_string()).await;
+        client.message().sender(&e.to_string()).await;
         return;
     };
 
-    let stdout = com.output().expect("error with stdout").stdout;
-    let stderr = com.output().expect("error with stdout").stderr;
+    let out = com.output().unwrap();
 
-    let out = String::from_utf8_lossy(&stdout) + String::from_utf8_lossy(&stderr);
+    let out = String::from_utf8_lossy(&out.stdout) + String::from_utf8_lossy(&out.stderr);
 
     if out.chars().count() <= 1000 {
-        client.sender(&format!("```text\n{out}")).await;
+        client.message().sender(&format!("```text\n{out}")).await;
     } else {
         bash_big_msg(out.to_string(), client).await;
     };
 }
 
-pub async fn bash_big_msg(out: String, client: Reywen) {
+// this code is terrible im sorry
+pub async fn bash_big_msg(out: String, client: &Do) {
     let vec: Vec<char> = out.chars().collect();
 
     let (a, b, c) = convert(vec.len() as i32);
@@ -108,7 +113,11 @@ pub async fn bash_big_msg(out: String, client: Reywen) {
             iter += 1;
         }
 
-        client.clone().sender(&format!("```\\n\\n{current}")).await;
+        client
+            .clone()
+            .message()
+            .sender(&format!("```\\n\\n{current}"))
+            .await;
 
         current = String::new();
     }
@@ -121,7 +130,7 @@ pub async fn bash_big_msg(out: String, client: Reywen) {
 
         current = format!("```\\n\\n{current}");
 
-        client.sender(&current).await;
+        client.message().sender(&current).await;
     };
     println!();
 }
