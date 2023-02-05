@@ -7,10 +7,11 @@ edition = "2021"
 
 [dependencies]
 bson = "2.5.0"
+easymongo = "0.1.0"
 futures-util = "0.3.25"
 mongodb = "2.3.1"
 reqwest = "0.11.13"
-reywen = "0.1.6"
+reywen = "0.1.7"
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.91"
 tokio = { version = "1.24.1", features = ["full"] }
