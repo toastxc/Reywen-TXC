@@ -39,14 +39,14 @@ pub async fn br_main(client: &Do) {
         println!("WARN: bot ID is empty, this can lead to undefined behavior (bridge)");
         return;
     };
-    if client.author_is_bot() && client.masquerade().is_some() {
+    if client.input().author_is(&client.auth.bot_id) && client.input().masquerade().is_some() {
         return;
     };
 
     // channel matcher
     let chan_rec = match (
-        client.channel_is(&conf.channel_1),
-        client.channel_is(&conf.channel_2),
+        client.input().channel_is(&conf.channel_1),
+        client.input().channel_is(&conf.channel_2),
     ) {
         (true, _) => conf.channel_2,
         (_, true) => conf.channel_1,
@@ -58,34 +58,38 @@ pub async fn br_main(client: &Do) {
 
     // if a profile is already using masquerade, copy it
     // otherwise generate a masq profile based on their details
-    let br_masq = match client.masquerade() {
+    let br_masq = match client.input().masquerade() {
         None => masq_from_user(&client).await,
         Some(a) => a,
     };
 
     // converts replies from websocket to API structure
     let mut replies: Vec<Reply> = Vec::new();
-    for x in client.replies().unwrap_or_default() {
+    for x in client.input().replies().unwrap_or_default() {
         let reply = Reply::new().id(&x);
         replies.push(reply);
     }
     // custom message payload
     let payload = DataMessageSend::new()
-        .content(&client.content())
+        .content(&client.input().content())
         .masquerade(br_masq)
         .replies(replies);
 
-    client.send(payload).await;
+    client.message().send(payload).await;
 }
 
 // this method is very slow as it calls API several times, but it is safer than the old method
 async fn masq_from_user(client: &Do) -> Masquerade {
-    let user = client.self_fetch().await;
+    let user = client.user().fetch_self().await;
 
     if let Some(user) = user {
-        let avatar = client.self_fetch_avatar().await.unwrap_or(String::from(
-            "https://api.revolt.chat/users/01FYZHW3KFZ5QN8R3KCQ8JH79R/default_avatar",
-        ));
+        let avatar = match user.avatar {
+            Some(a) => format!("https://autumn.revolt.chat/avatars/{}", a.id),
+            None => String::from(
+                "https://api.revolt.chat/users/01FYZHW3KFZ5QN8R3KCQ8JH79R/default_avatar",
+            ),
+        };
+
         return Masquerade::new().name(&user.username).avatar(&avatar);
     };
     // on failure masquerade is empty
