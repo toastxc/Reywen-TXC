@@ -78,6 +78,18 @@ pub async fn plural_main(client: &Do) {
         return;
     };
 
+    if convec[1] == *"help" {
+        let res = match convec[2].as_str() {
+            "search" => "**Search**\n`?p search <profilename>`",
+            "query" => "**Query**\n`?p query <profilename>`",
+            "rm" => "**Remove**\n`?p rm <profilename>`",
+            "insert" => "**Insert**\n`?p insert <profilename>`\n\nOptionals\n`--avatar <url>`\n`--colour <colour>`",
+            _ => &help,
+        };
+
+        client.message().sender(res).await;
+    }
+
     let database = Mongo::new()
         .username(&mongo.username)
         .password(&mongo.password)
@@ -175,7 +187,7 @@ async fn pl_send(client: Do, db: Collection<Masquerade>) {
     let message = client.message();
     let id = client.input().id();
 
-    tokio::join!(message.send(payload), message.delete(&id),);
+    tokio::join!(message.send(payload), message.delete(&id));
 }
 
 async fn pl_insert(client: &Do, db: Collection<Masquerade>) {
