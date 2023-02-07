@@ -17,7 +17,7 @@ pub struct TomoConf {
 
 pub async fn t_main(client: &Do) {
     let help = format!(
-        "### Tomo\n{} {}\n{} {}\n {} {}\n {} {}\n{} {}",
+        "### Tomo\n{} {}\n{} {}\n {} {}\n {} {}\n{} {}\n{} {}",
         md_fmt("enrol", RE::Json),
         "Registers self to the game",
         md_fmt("exit", RE::Rm),
@@ -26,6 +26,8 @@ pub async fn t_main(client: &Do) {
         "Displays user profile",
         md_fmt("buy", RE::Insert),
         "Attempt to purchase animal",
+        md_fmt("shop", RE::Insert),
+        "Lists available animals and prices",
         md_fmt("dev", RE::Json),
         "dev commands - sudoers only",
     );
@@ -39,7 +41,7 @@ pub async fn t_main(client: &Do) {
     if convec[1] == "help" {
         client.message().sender(&help).await;
         return;
-    };
+    }
 
     // connect to and import database
 
@@ -71,12 +73,23 @@ pub async fn t_main(client: &Do) {
         .await
         .collection::<TProfile>(&tomo_conf.collection);
 
+    let shop = "
+    Void: `Do not attempt to purchase`
+    Penguin: `10`
+    Dog: `20`
+    Cat: `30`
+    Fish: `40`
+    Dragon: `50`
+    Hyena: `60`
+    Femboy: `10000`";
+
     match convec[1].as_str() {
         "enrol" => add_self(client, db).await,
         "exit" => remove_self(client, db).await,
         "check" => query_self(client, db).await,
         "dev" => dev_patterns(client, db).await,
         "buy" => buy_pet(client, db).await,
+        "shop" => client.message().sender(shop).await,
         _ => {
             client.message().sender("**Invalid command**").await;
         }
@@ -203,16 +216,78 @@ async fn query_self(client: &Do, db: Collection<TProfile>) {
         .find_one(doc!("user_id": client.input().author()), None)
         .await
     {
-        Ok(a) => format!(
-            "```json\n\n{}\n```\n",
-            serde_json::to_string_pretty(&a).unwrap()
-        ),
+        Ok(a) => mongo_formatting(a),
         Err(_) => String::from("**Could not find user!**"),
     };
 
     client.message().sender(&res).await;
 }
 
+fn mongo_formatting(input: Option<TProfile>) -> String {
+    let input = match input {
+        Some(a) => a,
+        None => return String::from("None"),
+    };
+
+    let mut json = Printable::new();
+
+    for x in input.animals {
+        json.new_animal(x);
+    }
+
+    json.coins = input.money;
+
+    let a = serde_json::to_string_pretty(&json).unwrap();
+
+    format!("```json\n{a}\n```")
+}
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct Printable {
+    animals: PrintableAnimals,
+    coins: u32,
+}
+
+impl Printable {
+    pub fn new() -> Self {
+        Default::default()
+    }
+    pub fn new_animal(&mut self, animal: Animal) -> Self {
+        match animal {
+            Animal::Void => self.animals.void += 1,
+            Animal::Penguin => self.animals.penguin += 1,
+            Animal::Dog => self.animals.dog += 1,
+            Animal::Cat => self.animals.cat += 1,
+            Animal::Fish => self.animals.fish += 1,
+            Animal::Dragon => self.animals.dragon += 1,
+            Animal::Hyena => self.animals.hyena += 1,
+            Animal::Femboy => self.animals.femboy += 1,
+        }
+        self.to_owned()
+    }
+}
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct PrintableAnimals {
+    #[serde(skip_serializing_if = "zero")]
+    void: u32,
+    #[serde(skip_serializing_if = "zero")]
+    penguin: u32,
+    #[serde(skip_serializing_if = "zero")]
+    dog: u32,
+    #[serde(skip_serializing_if = "zero")]
+    cat: u32,
+    #[serde(skip_serializing_if = "zero")]
+    fish: u32,
+    #[serde(skip_serializing_if = "zero")]
+    dragon: u32,
+    #[serde(skip_serializing_if = "zero")]
+    hyena: u32,
+    #[serde(skip_serializing_if = "zero")]
+    femboy: u32,
+}
+
+fn zero(t: &u32) -> bool {
+    t == &0
+}
 async fn add_self(client: &Do, db: Collection<TProfile>) {
     // ?t add_self
     if user_exist(&db, &client.input().author()).await {
@@ -262,6 +337,7 @@ pub enum Animal {
     Fish,
     Dragon,
     Hyena,
+    Femboy,
 }
 
 impl Animal {
@@ -274,6 +350,7 @@ impl Animal {
             Animal::Fish => 4,
             Animal::Dragon => 5,
             Animal::Hyena => 6,
+            Animal::Femboy => 2000,
         }
     }
     pub fn to_enum(input: &str) -> Option<Self> {
@@ -284,6 +361,7 @@ impl Animal {
             "fish" | "Fish" => Some(Animal::Fish),
             "Dragon" | "dragon" => Some(Animal::Dragon),
             "hyena" | "Hyena" => Some(Animal::Hyena),
+            "femboy" | "Femboy" => Some(Animal::Femboy),
 
             _ => None,
         }
@@ -297,6 +375,7 @@ impl Animal {
             Animal::Fish => 40,
             Animal::Dragon => 50,
             Animal::Hyena => 60,
+            Animal::Femboy => 10000,
         }
     }
 
@@ -309,6 +388,7 @@ impl Animal {
             Animal::Fish => "Fish",
             Animal::Dragon => "Dragon",
             Animal::Hyena => "Hyena",
+            Animal::Femboy => "Femboy",
         }
         .to_string()
     }
