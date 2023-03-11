@@ -1,6 +1,10 @@
 use reywen::{
     client::Do,
-    structs::message::{DataMessageSend, Masquerade, Reply},
+    structs::{
+        attachment::File,
+        message::{DataMessageSend, Masquerade, Reply},
+        user::User,
+    },
 };
 use serde::{Deserialize, Serialize};
 
@@ -43,13 +47,9 @@ pub async fn br_main(client: &Do) {
         return;
     };
 
-    // channel matcher
-    let chan_rec = match (
-        client.input().channel_is(&conf.channel_1),
-        client.input().channel_is(&conf.channel_2),
-    ) {
-        (true, _) => conf.channel_2,
-        (_, true) => conf.channel_1,
+    let chan_rec = match client.input().channel().as_str() {
+        a if a == conf.channel_1 => conf.channel_2,
+        a if a == conf.channel_2 => conf.channel_1,
         _ => return,
     };
 
@@ -80,18 +80,20 @@ pub async fn br_main(client: &Do) {
 
 // this method is very slow as it calls API several times, but it is safer than the old method
 async fn masq_from_user(client: &Do) -> Masquerade {
-    let user = client.user().fetch_self().await;
-
-    if let Some(user) = user {
-        let avatar = match user.avatar {
-            Some(a) => format!("https://autumn.revolt.chat/avatars/{}", a.id),
-            None => String::from(
-                "https://api.revolt.chat/users/01FYZHW3KFZ5QN8R3KCQ8JH79R/default_avatar",
-            ),
-        };
-
-        return Masquerade::new().name(&user.username).avatar(&avatar);
+    let (avatar, username) = match client.user(&client.input().author()).fetch().await {
+        Some(User {
+            avatar: Some(File { id: avatar, .. }),
+            username,
+            ..
+        }) => (
+            format!("https://autumn.revolt.chat/avatars/{avatar}"),
+            username,
+        ),
+        _ => (
+            String::from("https://api.revolt.chat/users/01FYZHW3KFZ5QN8R3KCQ8JH79R/default_avatar"),
+            String::from("NoUsername"),
+        ),
     };
-    // on failure masquerade is empty
-    Masquerade::new()
+
+    Masquerade::new().avatar(&avatar).name(&username)
 }
