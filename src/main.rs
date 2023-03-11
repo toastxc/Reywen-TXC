@@ -49,7 +49,7 @@ async fn main() {
                     {
                         let client = Do::new(&auth, &input_message);
                         // spawn a new task
-                        tokio::spawn(message_process(client.await));
+                        tokio::spawn(message_process(client));
                     }
                 }
             })
