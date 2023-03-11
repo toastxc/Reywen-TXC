@@ -48,14 +48,12 @@ pub async fn message_main(client: &Do) {
     let mes = match &client.input().convec()[0] as &str {
         "?Mog" | "?mog" => ":01G7MT5B978E360NB6VWAS9SJ6:",
         "?ver" | "?version" => "Reywen.rs 0.1.4",
-        "?help" => "help",
-        _ => "",
+        "?help" => &help,
+        _ => return,
     };
 
-    // if applicable, send
-    if mes == "help" {
-        client.message().sender(&help).await;
-    } else if !mes.is_empty() {
-        client.message().sender(mes).await;
-    }
+    client.message().sender(mes).await;
+
+
+    
 }
