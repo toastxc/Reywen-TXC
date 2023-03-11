@@ -23,4 +23,4 @@ serde_json = "1.0.91"
 
 # self maintained libraries
 easymongo = "0.1.0"
-reywen = "0.1.7"
+reywen = "0.1.8"
