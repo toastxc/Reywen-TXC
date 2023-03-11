@@ -185,9 +185,8 @@ async fn pl_send(client: Do, db: Collection<Masquerade>) {
         .replies(replies_payload);
 
     let message = client.message();
-    let id = client.input().id();
 
-    tokio::join!(message.send(payload), message.delete(&id));
+    tokio::join!(message.send(payload), message.delete(None));
 }
 
 async fn pl_insert(client: &Do, db: Collection<Masquerade>) {
@@ -210,14 +209,20 @@ async fn pl_insert(client: &Do, db: Collection<Masquerade>) {
 
     // validity check and optional insertion
     for x in 0..convec.len() - 1 {
-        // colour
-        if convec[x] == "--colour" && convec[x + 1].chars().count() < 10 {
-            masq = masq.colour(&convec[x + 1]);
-        };
-        // avatar
-        if convec[x] == "--avatar" && convec[x + 1].chars().count() < 100 {
-            masq = masq.avatar(&convec[x + 1]);
-        };
+        match convec[x].as_str() {
+            "--avatar" | "-a" => {
+                if convec[x + 1].chars().count() < 100 {
+                    masq = masq.avatar(&convec[x + 1]);
+                };
+            }
+            "--color" | "--colour" | "-c" => {
+                if convec[x + 1].chars().count() < 10 {
+                    masq = masq.colour(&convec[x + 1]);
+                };
+            }
+
+            _ => {}
+        }
     }
 
     let res = match collection.insert_one(masq, None).await {
@@ -228,24 +233,18 @@ async fn pl_insert(client: &Do, db: Collection<Masquerade>) {
 }
 
 async fn pl_query(db: Collection<Masquerade>, client: &Do) {
-    // ?p query somethign
-    let userquery = pl_search(&client.input().convec()[2], db).await;
-
-    if userquery.is_none() {
-        client.message().sender("**Could not find profile!**").await;
-        return;
-    };
-    let userquery = userquery.unwrap();
-
-    let mut str = format!("```json\n{{\n\"name\": \"{}\"", userquery.name.unwrap());
-
-    if userquery.avatar.is_some() {
-        str += &format!(",\n\"avatar\": \"{}\"", userquery.avatar.unwrap());
-    };
-    if userquery.colour.is_some() {
-        str += &format!(",\n\"colour\": \"{}\"", userquery.colour.unwrap());
+    let userquery = match pl_search(&client.input().convec()[2], db).await {
+        Some(a) => a,
+        None => {
+            client.message().sender("**Could not find profile!**").await;
+            return;
+        }
     };
 
-    str += "\n}\n```\n";
-    client.message().sender(&str).await;
+    let mes = serde_json::to_string_pretty(&userquery).unwrap();
+
+    client
+        .message()
+        .sender(&format!("```json\n{mes}\n```"))
+        .await;
 }
