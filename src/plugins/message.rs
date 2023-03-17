@@ -44,16 +44,12 @@ pub async fn message_main(client: &Do) {
     // covers vector crash conditions
     crash_condition(&client.input_message, None);
 
-    // match the first word from websocket
-    let mes = match &client.input().convec()[0] as &str {
-        "?Mog" | "?mog" => ":01G7MT5B978E360NB6VWAS9SJ6:",
-        "?ver" | "?version" => "Reywen.rs 0.1.4",
+    let con = match client.input().convec()[0].as_str() {
+        "?mog" => ":01G7MT5B978E360NB6VWAS9SJ6:",
+        "?version" | "?ver" => "`reywen 0.1.9`",
         "?help" => &help,
         _ => return,
     };
 
-    client.message().sender(mes).await;
-
-
-    
+    client.message().sender(con).await;
 }
