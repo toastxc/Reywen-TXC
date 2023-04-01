@@ -8,15 +8,7 @@ use reywen::{
 
 // imported from reywen library
 
-// plugins
-pub mod plugins {
-    pub mod bridge;
-    pub mod e6;
-    pub mod message;
-    pub mod plural;
-    pub mod shell;
-    pub mod tomo;
-}
+
 
 #[tokio::main]
 async fn main() {
