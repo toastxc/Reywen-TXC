@@ -1,3 +1,4 @@
 target/
 Cargo.lock
 txcreywen_latest.tar.gz
+config/bridge.json
