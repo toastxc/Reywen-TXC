@@ -43,7 +43,7 @@ pub async fn br_main(client: &Do) {
         println!("WARN: bot ID is empty, this can lead to undefined behavior (bridge)");
         return;
     };
-    if client.input().author_is(&client.auth.bot_id) && client.input().masquerade().is_some() {
+    if client.input().author_is(&client.auth.bot_id)  {
         return;
     };
 
@@ -80,7 +80,7 @@ pub async fn br_main(client: &Do) {
 
 // this method is very slow as it calls API several times, but it is safer than the old method
 async fn masq_from_user(client: &Do) -> Masquerade {
-    let (avatar, username) = match client.user(&client.input().author()).fetch().await {
+    let (avatar, username) = match client.user(None).fetch().await {
         Some(User {
             avatar: Some(File { id: avatar, .. }),
             username,
