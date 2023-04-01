@@ -140,20 +140,24 @@ pub async fn e6_main(client: &Do) {
 
     if convec[0] == "help" {}
 
-    // determines if e6 is alive
+    let var = match &convec[1] as &str {
+        "search" => e6_search(&convec, &e6.url).await,
+        "help" => Some(help),
+        _ => return,
+    };
+
+    if let Some(message) = var {
+        client.message().sender(&message).await;
+        return;
+    };
+
+    // on failure
     if ping_test(&e6.url).await {
         client
             .message()
             .sender(&format!("**Could not reach {}", e6.url))
             .await;
     };
-
-    let var = match &convec[1] as &str {
-        "search" => e6_search(&convec, &e6.url).await,
-        "help" => help,
-        _ => return,
-    };
-    client.message().sender(&var).await;
 }
 
 async fn ping_test(url: &str) -> bool {
@@ -166,7 +170,7 @@ async fn ping_test(url: &str) -> bool {
     true
 }
 
-async fn e6_search(convec: &[String], url: &str) -> String {
+async fn e6_search(convec: &[String], url: &str) -> Option<String> {
     // https://e926.net/posts?tags=fox&limit=1&page=2
     // ?e search fox 2
 
@@ -186,33 +190,33 @@ async fn e6_search(convec: &[String], url: &str) -> String {
         .await;
 
     if http.is_err() {
-        return String::new();
+        return None;
     };
 
     let http_payload = match http {
         Ok(a) => a.text().await.unwrap(),
-        Err(_) => return String::new(),
+        Err(_) => return None,
     };
 
     if http_payload.is_empty() {
-        return String::new();
+        return None;
     };
 
     if let Ok(poster) = serde_json::from_str::<Poster>(&http_payload) {
         if poster.post.is_none() {
-            return String::from("**No Results!**");
+            return Some(String::from("**No Results!**"));
         };
 
         if let Some(post) = poster.post {
             if !post.is_empty() {
                 return match &post[0].file.url {
-                    Some(a) => format!("**UwU**\n{}", lte(a)),
-                    None => DURL.to_string(),
+                    Some(a) => Some(format!("**UwU**\n{}", lte(a))),
+                    None => Some(DURL.to_string()),
                 };
             }
         }
     }
-    String::from("**Failed to get results!**")
+    Some(String::from("**Failed to get results!**"))
 }
 
 fn numcheck(convec: &[String]) -> String {
