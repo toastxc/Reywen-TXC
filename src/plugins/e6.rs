@@ -1,10 +1,11 @@
 // external
-use crate::Do;
-use crate::{crash_condition, lte, md_fmt, RE};
 use reqwest::header::USER_AGENT;
+use reywen::client::Do;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use urlencoding::encode;
+
+use crate::common::{md_fmt, RE, crash_condition, lte};
 
 // internal
 

@@ -7,7 +7,7 @@ use reywen::client::Do;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-use crate::{crash_condition, md_fmt, RE};
+use crate::common::{crash_condition, md_fmt, RE};
 
 #[derive(Deserialize, Serialize)]
 pub struct TomoConf {

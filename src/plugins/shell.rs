@@ -2,7 +2,8 @@ use reywen::client::Do;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
-use crate::{crash_condition, md_fmt, RE};
+use crate::common::{md_fmt, RE, crash_condition};
+
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ShellConf {

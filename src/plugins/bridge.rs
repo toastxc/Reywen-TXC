@@ -8,7 +8,7 @@ use reywen::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::crash_condition;
+use crate::common::crash_condition;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BrConf {
@@ -43,7 +43,7 @@ pub async fn br_main(client: &Do) {
         println!("WARN: bot ID is empty, this can lead to undefined behavior (bridge)");
         return;
     };
-    if client.input().author_is(&client.auth.bot_id)  {
+    if client.input().author_is(&client.auth.bot_id) {
         return;
     };
 

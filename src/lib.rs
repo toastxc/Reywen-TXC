@@ -5,4 +5,7 @@ pub mod plugins {
     pub mod plural;
     pub mod shell;
     pub mod tomo;
+
 }
+
+pub mod common;
