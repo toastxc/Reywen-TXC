@@ -10,7 +10,7 @@ use reywen::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{crash_condition, md_fmt, RE};
+use crate::common::{crash_condition, md_fmt, RE};
 
 // config struct
 // this optional struct adds configurable paramaters that are hot changeable, config files are
@@ -208,19 +208,51 @@ async fn pl_insert(client: &Do, db: Collection<Masquerade>) {
     let mut masq = Masquerade::new().name(&convec[2]);
 
     // validity check and optional insertion
+    /*
     for x in 0..convec.len() - 1 {
         match convec[x].as_str() {
             "--avatar" | "-a" => {
-                if convec[x + 1].chars().count() < 100 {
+                if convec[x + 1].chars().count() < 256 {
                     masq = masq.avatar(&convec[x + 1]);
                 };
             }
             "--color" | "--colour" | "-c" => {
-                if convec[x + 1].chars().count() < 10 {
+                if convec[x + 1].chars().count() < 128 {
                     masq = masq.colour(&convec[x + 1]);
                 };
             }
 
+            _ => {}
+        }
+    }
+
+    */
+
+    for x in 0..convec.len() - 1 {
+        let charlen = convec[x + 1].chars().count();
+
+        match (convec[x].clone().as_str(), charlen) {
+            ("--color" | "--colour" | "-c", size) => {
+                if size > 128 {
+                    client
+                        .message()
+                        .sender("**Invalid character limit for colour field**")
+                        .await;
+                    return;
+                };
+                masq = masq.colour(&convec[x + 1]);
+            }
+
+            ("--avatar" | "-a", size) => {
+                if size > 256 {
+                    client
+                        .message()
+                        .sender("**Invalid character limit for avatar field**")
+                        .await;
+                    return;
+                };
+                masq = masq.colour(&convec[x + 1]);
+            }
             _ => {}
         }
     }
