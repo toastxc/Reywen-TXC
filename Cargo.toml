@@ -1,6 +1,6 @@
 [package]
 name = "reywen-txc"
-version = "0.1.1"
+version = "0.1.15"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,7 +10,6 @@ edition = "2021"
 # plugin dependencies
 mongodb = "2.3.1"
 bson = "2.5.0"
-reqwest = "0.11.14"
 urlencoding = "2.1.2"
 
 # async
@@ -20,7 +19,10 @@ tokio = { version = "1.24.1", features = ["full"] }
 # serde
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.91"
+toml = "0.7.5"
 
 # self maintained libraries
-easymongo = "0.1.0"
-reywen = "0.1.9"
+#easymongo = "0.1.1"
+reywen = "0.1.15"
+#reywen_http = { version = "0.1.13", features = ["serde"] }
+

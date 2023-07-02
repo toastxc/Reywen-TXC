@@ -207,27 +207,6 @@ async fn pl_insert(client: &Do, db: Collection<Masquerade>) {
 
     let mut masq = Masquerade::new().name(&convec[2]);
 
-    // validity check and optional insertion
-    /*
-    for x in 0..convec.len() - 1 {
-        match convec[x].as_str() {
-            "--avatar" | "-a" => {
-                if convec[x + 1].chars().count() < 256 {
-                    masq = masq.avatar(&convec[x + 1]);
-                };
-            }
-            "--color" | "--colour" | "-c" => {
-                if convec[x + 1].chars().count() < 128 {
-                    masq = masq.colour(&convec[x + 1]);
-                };
-            }
-
-            _ => {}
-        }
-    }
-
-    */
-
     for x in 0..convec.len() - 1 {
         let charlen = convec[x + 1].chars().count();
 
@@ -251,7 +230,7 @@ async fn pl_insert(client: &Do, db: Collection<Masquerade>) {
                         .await;
                     return;
                 };
-                masq = masq.colour(&convec[x + 1]);
+                masq = masq.avatar(&convec[x + 1]);
             }
             _ => {}
         }

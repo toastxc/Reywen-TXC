@@ -1,4 +1,4 @@
-use reywen::structs::message::Message;
+use reywen::structures::channels::message::Message;
 
 // Simple markdown formating
 pub fn md_fmt(message: &str, emoji: RE) -> String {

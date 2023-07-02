@@ -1,14 +1,18 @@
-// external crates
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use reywen::{
-    client::Do,
-    structs::{auth::Auth, message::Message},
-    websocket::Websocket,
+    client::{methods::user::DataEditUser, Client},
+    structures::{channels::message::Message, users::user::UserStatus},
+    websocket::data::{MessageUpdateData, WebSocketEvent, WebSocketSend},
 };
+use reywen_txc::plugins::federolt;
+use serde::{Deserialize, Serialize};
 
-use reywen_txc::plugins::*;
-
-// imported from reywen library
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Auth {
+    token: String,
+    bot_id: String,
+    sudoers: Option<Vec<String>>,
+}
 
 #[tokio::main]
 async fn main() {
@@ -18,45 +22,64 @@ async fn main() {
     )
     .expect("Failed to interpret byte array");
 
-    // Deserilize reywen.json Websocket and Auth
-    let websocket =
-        serde_json::from_str::<Websocket>(&file).expect("invalid json for websocket config");
-
     let auth = serde_json::from_str::<Auth>(&file).expect("invalid json for Auth config");
 
-    // restart websocekt - always
+    let client = Client::from_token(&auth.token, true).unwrap();
+
+    // websocket
+
     loop {
-        websocket
-            .clone()
-            .generate()
-            .await
-            // from websocket config establish a connection
-            .for_each(|message| async {
-                // for every message
-                if let Ok(raw_message) = message {
-                    // if the message is valid
-                    if let Ok(input_message) =
-                        serde_json::from_str::<Message>(&raw_message.into_text().unwrap())
-                    // and of type Message
-                    {
-                        let client = Do::new(&auth, &input_message);
-                        // spawn a new task
-                        tokio::spawn(message_process(client));
-                    }
+        let (mut write, mut read) = client.websocket.dual_connection().await;
+
+        while let Some(input) = read.next().await {
+            match input {
+                WebSocketEvent::Error { .. } => {}
+                WebSocketEvent::Ready { servers, .. } => {
+                    client
+                        .user_edit(
+                            &auth.bot_id,
+                            &DataEditUser::new().set_status(
+                                UserStatus::new().set_text(&format!("servers: {}", servers.len())),
+                            ),
+                        )
+                        .await
+                        .ok();
                 }
-            })
-            .await;
+                WebSocketEvent::Message { message } => {
+                    message_process(&client, message, &auth).await;
+                }
+
+                WebSocketEvent::Pong { .. } => {
+                    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                    write.send(WebSocketSend::ping(0).into()).await.ok();
+                }
+
+                WebSocketEvent::MessageUpdate {
+                    message_id,
+                    channel_id,
+                    data,
+                } => update_message_process(message_id, channel_id, data).await,
+                _ => {}
+            }
+        }
     }
 }
 
-async fn message_process(client: Do) {
-    tokio::join!(
-        bridge::br_main(&client),
-        e6::e6_main(&client),
-        message::message_main(&client),
-        plural::plural_main(&client),
-        tomo::t_main(&client),
-        shell::shell_main(&client),
-     //   ticket::main(client: &Do),
-    );
+async fn update_message_process(
+    _message_id: String,
+    _channel_id: String,
+    _data: MessageUpdateData,
+) {
+
+    // todo bridge handling for editing messages
+}
+
+async fn message_process(client: &Client, message: Message, auth: &Auth) {
+    if message.author == auth.bot_id {
+        return;
+    };
+
+    if let Some(conf) = federolt::start().await {
+        federolt::on_message(client, &message, conf).await
+    }
 }
