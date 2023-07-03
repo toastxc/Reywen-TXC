@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use futures_util::{SinkExt, StreamExt};
 use reywen::{
     client::{methods::user::DataEditUser, Client},
@@ -29,54 +31,82 @@ async fn main() {
     // websocket
 
     loop {
-        let (mut write, mut read) = client.websocket.dual_connection().await;
+        let (mut read, write) = client.websocket.dual_async().await;
 
         while let Some(input) = read.next().await {
-            match input {
-                WebSocketEvent::Error { .. } => {}
-                WebSocketEvent::Ready { servers, .. } => {
-                    client
-                        .user_edit(
-                            &auth.bot_id,
-                            &DataEditUser::new().set_status(
-                                UserStatus::new().set_text(&format!("servers: {}", servers.len())),
-                            ),
-                        )
-                        .await
-                        .ok();
-                }
-                WebSocketEvent::Message { message } => {
-                    message_process(&client, message, &auth).await;
-                }
+            let write = Arc::clone(&write);
+            let auth = auth.clone();
+            let client = client.clone();
 
-                WebSocketEvent::Pong { .. } => {
-                    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-                    write.send(WebSocketSend::ping(0).into()).await.ok();
-                }
+            tokio::spawn(async move {
+                match input {
+                    WebSocketEvent::Error { .. } => {}
+                    WebSocketEvent::Ready { servers, .. } => {
+                        client
+                            .user_edit(
+                                &auth.bot_id,
+                                &DataEditUser::new().set_status(
+                                    UserStatus::new()
+                                        .set_text(&format!("servers: {}", servers.len())),
+                                ),
+                            )
+                            .await
+                            .ok();
 
-                WebSocketEvent::MessageUpdate {
-                    message_id,
-                    channel_id,
-                    data,
-                } => update_message_process(message_id, channel_id, data).await,
-                _ => {}
-            }
+                        write
+                            .lock()
+                            .await
+                            .send(WebSocketSend::ping(0).into())
+                            .await
+                            .ok();
+                    }
+                    WebSocketEvent::Message { message } => {
+                        message_process(&client, message, &auth).await;
+                    }
+
+                    WebSocketEvent::Pong { .. } => {
+                        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                        write
+                            .lock()
+                            .await
+                            .send(WebSocketSend::ping(0).into())
+                            .await
+                            .ok();
+                    }
+
+                    WebSocketEvent::MessageUpdate {
+                        message_id,
+                        channel_id,
+                        data,
+                    } => update_message(message_id, channel_id, data, &client).await,
+                    _ => {}
+                };
+            });
         }
     }
 }
 
-async fn update_message_process(
-    _message_id: String,
-    _channel_id: String,
-    _data: MessageUpdateData,
+async fn update_message(
+    message_id: String,
+    channel_id: String,
+    data: MessageUpdateData,
+    client: &Client,
 ) {
-
     // todo bridge handling for editing messages
+
+    // cannot check for bot made message
+    if let Some(conf) = federolt::start().await {
+        federolt::on_message_update(message_id, channel_id, data, conf, client).await
+    }
 }
 
 async fn message_process(client: &Client, message: Message, auth: &Auth) {
     if message.author == auth.bot_id {
         return;
+    };
+
+    if message.content_contains("delay", " ").is_some() {
+        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
     };
 
     if let Some(conf) = federolt::start().await {
