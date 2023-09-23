@@ -58,7 +58,10 @@ pub async fn on_message(client: &Client, message: &Message, db: &DB) {
             };
 
             if let Some(data) = data {
-                client.message_send(&message.channel, &data).await.unwrap();
+                tokio::join!(
+                    client.message_send(&message.channel, &data),
+                    client.message_delete(&message.channel, &message.id)
+                );
             }
         }
     }
@@ -231,21 +234,14 @@ pub async fn profile_fn(client: &Client, message: &Message, mut content: Vec<Str
                     profile_format(data)
                 ),
                 Ok(Multi::Single(Some(data))) => {
-                    client
-                        .message_delete(&message.channel, &message.id)
-                        .await
-                        .ok();
+                    let data = &DataMessageSend::new()
+                        .set_content(&message_vec(content))
+                        .set_masquerade(&data.data);
 
-                    client
-                        .message_send(
-                            &message.channel,
-                            &DataMessageSend::new()
-                                .set_content(&message_vec(content))
-                                .set_masquerade(&data.data),
-                        )
-                        .await
-                        .ok();
-
+                      tokio::join!(
+                        client.message_delete(&message.channel, &message.id),
+                        client.message_send(&message.channel, data)
+                    );
                     return;
                 }
                 Ok(Multi::Single(None)) => NOT_FOUND.to_string(),
