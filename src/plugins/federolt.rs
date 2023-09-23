@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use bson::doc;
 
 use futures_util::future::join_all;
-use mongodb::{Collection, Database};
 use reywen::{
     client::{
         methods::message::{DataEditMessage, DataMessageSend},
@@ -15,13 +14,9 @@ use reywen::{
 
 use serde::{Deserialize, Serialize};
 
-use super::conf_from_file;
+use crate::DB;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct FederoltGroups {
-    enable: bool,
-    groups: HashMap<String, Vec<String>>,
-}
+use super::FederoltGroups;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct MessageAlias {
@@ -40,30 +35,6 @@ impl MessageAlias {
     pub fn add_message(&mut self, message_id: String, channel_id: String) -> Self {
         self.message_ids.insert(message_id, channel_id);
         self.to_owned()
-    }
-}
-
-pub async fn start() -> Option<FederoltGroups> {
-    let conf: FederoltGroups = conf_from_file("config/federolt.toml");
-    if !conf.enable {
-        None
-    } else {
-        Some(conf)
-    }
-}
-
-pub struct DB {}
-impl DB {
-    pub async fn alias() -> Result<Collection<MessageAlias>, mongodb::error::Error> {
-        Ok(Self::db().await?.collection("alias"))
-    }
-    pub async fn db() -> Result<Database, mongodb::error::Error> {
-        easymongo::mongo::Mongo::new()
-            .username("username")
-            .password("password")
-            .database("test")
-            .db_generate()
-            .await
     }
 }
 
@@ -91,18 +62,21 @@ pub async fn on_message_update(
     data: MessageUpdateData,
     conf: FederoltGroups,
     client: &Client,
+    db: &DB,
 ) {
     if edited_messages(&conf, &channel_id).is_some() {
-        let db = DB::alias().await.unwrap();
-
         let mut new_message = DataEditMessage::new();
         if let Some(content) = data.content {
-            new_message.content(&content);
+            new_message.set_content(&content);
         };
 
         let client = client.to_owned();
 
         if let Some(group) = db
+            .federolt
+            .0
+            .read()
+            .await
             .find_one(doc!("origin_message": message_id), None)
             .await
             .unwrap()
@@ -121,7 +95,7 @@ pub async fn on_message_update(
     }
 }
 
-pub async fn on_message(client: &Client, message: &Message, conf: FederoltGroups) {
+pub async fn on_message(client: &Client, message: &Message, conf: FederoltGroups, db: &DB) {
     // messaging sending data
     let mut message_send_index = Vec::new();
 
@@ -142,7 +116,6 @@ pub async fn on_message(client: &Client, message: &Message, conf: FederoltGroups
     // spawn all messages
     let message_send_index = join_all(message_send_index).await;
     // database
-    let db = DB::alias().await.unwrap();
 
     let mut message_db = MessageAlias::new(message.id.to_owned());
 
@@ -153,7 +126,13 @@ pub async fn on_message(client: &Client, message: &Message, conf: FederoltGroups
         };
     });
 
-    db.insert_one(message_db, None).await.unwrap();
+    db.federolt
+        .0
+        .write()
+        .await
+        .insert_one(message_db, None)
+        .await
+        .unwrap();
 }
 
 async fn message_from_input(client: &Client, message: &Message) -> DataMessageSend {

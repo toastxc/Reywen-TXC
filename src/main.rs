@@ -1,30 +1,23 @@
-use std::sync::Arc;
-
 use futures_util::{SinkExt, StreamExt};
 use reywen::{
     client::{methods::user::DataEditUser, Client},
-    structures::{channels::message::Message, users::user::UserStatus},
+    structures::{channels::message::Message, users::UserStatus},
     websocket::data::{MessageUpdateData, WebSocketEvent, WebSocketSend},
 };
-use reywen_txc::plugins::federolt;
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Auth {
-    token: String,
-    bot_id: String,
-    sudoers: Option<Vec<String>>,
-}
+use reywen_txc::{
+    plugins::{conf_from_file_json, federolt, pluralkit, Auth, Start},
+    DB,
+};
+use std::sync::Arc;
 
 #[tokio::main]
 async fn main() {
     // import config/reywen.json
-    let file = String::from_utf8(
-        std::fs::read("config/reywen.json").expect("unable to find file config/reywen.json"),
-    )
-    .expect("Failed to interpret byte array");
 
-    let auth = serde_json::from_str::<Auth>(&file).expect("invalid json for Auth config");
+    let db = Arc::from(DB::init().await.unwrap());
+
+    let auth: Auth = conf_from_file_json("config/reywen.json");
+    let start: Start = conf_from_file_json("config/plugin_global.json");
 
     let client = Client::from_token(&auth.token, true).unwrap();
 
@@ -37,6 +30,8 @@ async fn main() {
             let write = Arc::clone(&write);
             let auth = auth.clone();
             let client = client.clone();
+            let start = start.clone();
+            let db = db.clone();
 
             tokio::spawn(async move {
                 match input {
@@ -61,7 +56,7 @@ async fn main() {
                             .ok();
                     }
                     WebSocketEvent::Message { message } => {
-                        message_process(&client, message, &auth).await;
+                        message_process(&client, message, &auth, start, &db).await;
                     }
 
                     WebSocketEvent::Pong { .. } => {
@@ -78,7 +73,7 @@ async fn main() {
                         message_id,
                         channel_id,
                         data,
-                    } => update_message(message_id, channel_id, data, &client).await,
+                    } => update_message(message_id, channel_id, data, &client, start, &db).await,
                     _ => {}
                 };
             });
@@ -91,25 +86,23 @@ async fn update_message(
     channel_id: String,
     data: MessageUpdateData,
     client: &Client,
+    start: Start,
+    db: &DB,
 ) {
     // todo bridge handling for editing messages
 
     // cannot check for bot made message
-    if let Some(conf) = federolt::start().await {
-        federolt::on_message_update(message_id, channel_id, data, conf, client).await
-    }
+    if let Some(conf) = start.federolt.enabled() {
+        federolt::on_message_update(message_id, channel_id, data, conf, client, db).await
+    };
 }
 
-async fn message_process(client: &Client, message: Message, auth: &Auth) {
-    if message.author == auth.bot_id {
-        return;
+async fn message_process(client: &Client, message: Message, auth: &Auth, start: Start, db: &DB) {
+    if let Some(config) = start.federolt.from_message_input(&message, auth) {
+        federolt::on_message(client, &message, config, db).await;
     };
 
-    if message.content_contains("delay", " ").is_some() {
-        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+    if start.pluralkit.from_message_input(&message, auth).is_some() {
+        pluralkit::on_message(client, &message, db).await;
     };
-
-    if let Some(conf) = federolt::start().await {
-        federolt::on_message(client, &message, conf).await
-    }
 }

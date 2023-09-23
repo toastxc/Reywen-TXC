@@ -1,0 +1,22 @@
+{
+  "pluralkit": {
+    "enabled": false,
+    "plugin_name": "pluralkit",
+    "ignore_self": true,
+    "requires_sudo": null,
+    "data": null
+  },
+  "federolt": {
+    "enabled": false,
+    "plugin_name": "federolt",
+    "ignore_self": true,
+    "requires_sudo": null,
+    "data": {
+      "groups": {
+        "example-group": [
+
+        ]
+      }
+    }
+  }
+}

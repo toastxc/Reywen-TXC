@@ -1,3 +1,4 @@
 target/
 txcreywen_latest.tar.gz
 config/*
+config/reywen.json
