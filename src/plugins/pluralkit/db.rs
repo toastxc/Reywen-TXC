@@ -1,10 +1,25 @@
 use super::data::{Multi, Profile};
 use crate::plugins::pluralkit::data::ProfileAlias;
-use crate::{DBAliases, DBPlural};
+use crate::{DBAliases, DBPlural, DB};
 use bson::{doc, Document};
 use futures_util::StreamExt;
 use mongodb::results::UpdateResult;
 
+impl DB {
+    pub async fn alias_check_smart(
+        &self,
+        author: impl Into<String> + Clone,
+        alias: impl Into<String>,
+    ) -> Result<Option<Profile>, mongodb::error::Error> {
+        if let Some(ProfileAlias { id, .. }) =
+            self.aliases.alias_check(author.clone(), alias).await?
+        {
+            self.plural.profile_find(author, id.profile_id).await
+        } else {
+            Ok(None)
+        }
+    }
+}
 impl DBPlural {
     pub async fn profile_find_many(
         &self,
@@ -136,18 +151,6 @@ impl DBAliases {
                 None,
             )
             .await?)
-    }
-    pub async fn alias_check_smart(
-        &self,
-        plural: &DBPlural,
-        author: impl Into<String> + Clone,
-        alias: impl Into<String>,
-    ) -> Result<Option<Profile>, mongodb::error::Error> {
-        if let Some(ProfileAlias { id, .. }) = self.alias_check(author.clone(), alias).await? {
-            plural.profile_find(author, id.profile_id).await
-        } else {
-            Ok(None)
-        }
     }
 
     pub async fn alias_create(

@@ -1,4 +1,4 @@
-use crate::plugins::pluralkit::data::ProfileAlias;
+use crate::plugins::pluralkit::data::{Composite, ProfileAlias};
 use mongodb::{Collection, Database};
 use plugins::{federolt::MessageAlias, pluralkit::data::Profile};
 use std::sync::Arc;
@@ -13,6 +13,7 @@ pub struct DB {
     pub plural: DBPlural,
     pub federolt: DBFederolt,
     pub aliases: DBAliases,
+    pub profilebind: DBBind,
 }
 
 #[derive(Debug, Clone)]
@@ -21,6 +22,8 @@ pub struct DBPlural(SharedCollection<Profile>);
 pub struct DBFederolt(SharedCollection<MessageAlias>);
 #[derive(Debug, Clone)]
 pub struct DBAliases(SharedCollection<ProfileAlias>);
+#[derive(Debug, Clone)]
+pub struct DBBind(SharedCollection<Composite>);
 
 pub fn collection_locked<T>(
     db: &Database,
@@ -41,6 +44,7 @@ impl DB {
             plural: DBPlural(collection_locked(&db, "plural")?),
             aliases: DBAliases(collection_locked(&db, "alias")?),
             federolt: DBFederolt(collection_locked(&db, "federolt")?),
+            profilebind: DBBind(collection_locked(&db, "bind")?),
         })
     }
 }

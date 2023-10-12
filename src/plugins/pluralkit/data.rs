@@ -1,5 +1,4 @@
 use bson::{doc, Document};
-use indexmap::IndexSet;
 use reywen::structures::channels::message::Masquerade;
 use serde::{Deserialize, Serialize};
 
@@ -8,41 +7,41 @@ pub struct Profile {
     #[serde(rename = "_id")]
     pub id: Composite,
     pub data: Masquerade,
-    pub aliases: Option<IndexSet<String>>,
 }
-
-#[derive(Deserialize, Serialize, Debug, Default, Clone)]
-pub struct ProfilePrint {
-    data: Masquerade,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    aliases: Option<IndexSet<String>>,
-    id: u32,
-}
-
-impl Profile {
-    pub fn alias(&self, alias: &str) -> bool {
-        self.aliases
-            .as_ref()
-            .is_some_and(|aliases| aliases.contains(alias))
-    }
-    pub fn format(&self) -> String {
-        serde_json::to_string_pretty(
-            &(ProfilePrint {
-                data: self.data.clone(),
-                aliases: self.aliases.clone(),
-                id: self.id.profile_id,
-            }),
-        )
-        .unwrap()
-    }
-}
-
 #[derive(Deserialize, Serialize, Debug, Default, Clone)]
 pub struct Composite {
     pub user: String,
     #[serde(rename = "profile")]
     pub profile_id: u32,
 }
+
+
+#[derive(Deserialize, Serialize, Debug, Default, Clone)]
+pub struct ProfilePrint {
+    data: Masquerade,
+    #[serde(rename = "_id")]
+    pub id: Composite,
+
+}
+
+#[derive(Deserialize, Serialize, Debug, Default, Clone)]
+pub struct Bind {
+
+}
+
+impl Profile {
+
+    pub fn format(&self) -> String {
+        serde_json::to_string_pretty(
+            &(ProfilePrint {
+                data: self.data.clone(),
+                id: self.id.clone()
+            }),
+        )
+        .unwrap()
+    }
+}
+
 
 pub fn arg(name: Option<&String>, avatar: Option<&String>, color: Option<&String>) -> Document {
     let mut document = Document::new();
@@ -71,6 +70,8 @@ fn bson_parse(input: Option<&String>, name: &str) -> Option<Document> {
         _ => Some(doc! {format!("data.{name}"): input_data}),
     }
 }
+// skip none womp
+
 
 pub enum Multi<T> {
     Many(Vec<T>),
